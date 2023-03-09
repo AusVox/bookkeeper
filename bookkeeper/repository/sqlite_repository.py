@@ -26,8 +26,8 @@ class SQLiteRepository(AbstractRepository[T]):
         self.fields.pop('pk')
 
         keys = [str(k) for k in self.fields.keys()]
-        vals = [str(v).split("'")[-2] for v in self.fields.values()]
-        vals = ['INTEGER' if v == 'int' else 'TEXT' for v in vals]
+        vals = [str(v) for v in self.fields.values()]
+        vals = ['INTEGER' if v.find('int') != -1 else 'TEXT' for v in vals]
         names = [str(k) + ' ' + str(v) for (k, v) in zip(keys, vals)]
         names = ['pk INTEGER PRIMARY KEY'] + names
         names = ', '.join(names)

@@ -5,10 +5,13 @@
 from bookkeeper.models.category import Category
 from bookkeeper.models.expense import Expense
 from bookkeeper.repository.memory_repository import MemoryRepository
+from bookkeeper.repository.sqlite_repository import SQLiteRepository
 from bookkeeper.utils import read_tree
 
 cat_repo = MemoryRepository[Category]()
 exp_repo = MemoryRepository[Expense]()
+#cat_repo = SQLiteRepository[Category]('Finances.db', Category)
+#exp_repo = SQLiteRepository[Expense]('Finances.db', Expense)
 
 cats = '''
 продукты
@@ -42,4 +45,3 @@ while True:
             continue
         exp = Expense(int(amount), cat.pk)
         exp_repo.add(exp)
-        print(exp)

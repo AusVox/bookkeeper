@@ -3,19 +3,21 @@ from bookkeeper.repository.sqlite_repository import SQLiteRepository
 import pytest
 from dataclasses import dataclass
 
+
 @dataclass
-class Test_model:
+class TestModel:
     pk: int = 0
     comment: str = ''
 
+
 @pytest.fixture
 def custom_class():
-    return Test_model
+    return TestModel
 
 
 @pytest.fixture
 def repo():
-    return SQLiteRepository('test.db', Test_model)
+    return SQLiteRepository('test.db', TestModel)
 
 
 def test_crud(repo, custom_class):

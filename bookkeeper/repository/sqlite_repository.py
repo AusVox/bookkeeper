@@ -1,7 +1,11 @@
-from bookkeeper.repository.abstract_repository import AbstractRepository, T
-from inspect import get_annotations
-from typing import Generic, TypeVar, Protocol, Any
+"""
+Модуль описывает репозиторий, использующий базу данных, с использованием sqlite3
+"""
+
+from typing import Any
 import sqlite3
+from inspect import get_annotations
+from bookkeeper.repository.abstract_repository import AbstractRepository, T
 
 
 class SQLiteRepository(AbstractRepository[T]):
@@ -37,12 +41,12 @@ class SQLiteRepository(AbstractRepository[T]):
         if getattr(obj, 'pk', None) != 0:
             raise ValueError(f'trying to add object {obj} with filled `pk` attribute')
         names = ', '.join(self.fields.keys())
-        p = ', '.join("?" * len(self.fields))
+        placeholders = ', '.join("?" * len(self.fields))
         values = [getattr(obj, x) for x in self.fields]
         with sqlite3.connect(self.db_file) as con:
             cur = con.cursor()
             cur.execute(
-                f'INSERT INTO {self.table_name} ({names}) VALUES ({p})', values
+                f'INSERT INTO {self.table_name} ({names}) VALUES ({placeholders})', values
             )
             obj.pk = cur.lastrowid
         con.close()
@@ -76,9 +80,9 @@ class SQLiteRepository(AbstractRepository[T]):
             objs.append(self.cls(*tuple_obj))
         if where is None:
             return objs
-        else:
-            objs = [obj for obj in objs if all(getattr(obj, attr) == where[attr] for attr in where.keys())]
-            return objs
+        objs = [obj for obj in objs if
+                all(getattr(obj, attr) == where[attr] for attr in where.keys())]
+        return objs
 
     def update(self, obj: T) -> None:
         if obj.pk == 0:
@@ -103,9 +107,3 @@ class SQLiteRepository(AbstractRepository[T]):
                 f'DELETE FROM {self.table_name} WHERE pk = {pk}'
             )
         con.close()
-
-
-"""
-from bookkeeper.models.expense import Expense
-repo = SQLiteRepository('test.db', Expense)
-repo.add()"""

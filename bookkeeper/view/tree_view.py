@@ -3,16 +3,18 @@
 """
 
 import sys
+from typing import Any
 from collections import deque
-from PySide6.QtWidgets import *
-from PySide6.QtGui import *
-from PySide6.QtCore import *
+from PySide6.QtWidgets import QWidget, QTreeView, QVBoxLayout, QMenu, QApplication
+from PySide6.QtGui import QStandardItem, QStandardItemModel
+from PySide6.QtCore import QModelIndex, Qt, QPoint, Signal
 from functools import partial
 from inspect import get_annotations
 from bookkeeper.repository.sqlite_repository import SQLiteRepository
 from bookkeeper.models.category import Category
 from bookkeeper.models.expense import Expense
 from bookkeeper.utils import read_tree
+
 
 class TreeView(QWidget):
     """
@@ -23,7 +25,12 @@ class TreeView(QWidget):
     model: QStandardItemModel
     fields: list[str]
 
-    def __init__(self, data):
+    add_pressed: Signal = Signal()
+    insert_up_pressed: Signal = Signal()
+    insert_down_pressed: Signal = Signal()
+    delete_pressed: Signal = Signal()
+
+    def __init__(self, data: list[dict[str, Any]] = tuple()) -> None:
         """
         Создает виджет дерева из списка словарей вида:
         [
@@ -34,10 +41,10 @@ class TreeView(QWidget):
         self.tree = QTreeView(self)
         self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self.open_menu)
-
-        self.layout = QVBoxLayout(self)
-        self.layout.addWidget(self.tree)
         self.model = QStandardItemModel()
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.tree)
+        self.setLayout(layout)
         names = get_annotations(Expense)
         names.pop('pk')
         self.fields = ['Name'] + list(names.keys())
@@ -47,7 +54,7 @@ class TreeView(QWidget):
         self.import_data(data)
         self.tree.expandAll()
 
-    def import_data(self, data) -> None:
+    def import_data(self, data: list[dict[str, Any]]) -> None:
         """
         Обновляет содержание. Принимает список словарей вида:
         [
@@ -118,11 +125,11 @@ class TreeView(QWidget):
                         if child is not None:
                             row = str(child.data(0)) + row
                         if j == 0:
-                            row = '\t'*(lvl-1) + row
+                            row = '\t' * (lvl - 1) + row
                             print(row)
                         self.print_tree(child, lvl)
 
-    def open_menu(self, position) -> None:
+    def open_menu(self, position: QPoint) -> None:
         """
         Меню, вызываемое нажатием ПКМ. Подписать на сигнал выхова менб
         :param position: позиция курсора
@@ -152,39 +159,46 @@ class TreeView(QWidget):
             act_del.triggered.connect(partial(self.delete, item))
         right_click_menu.exec(self.sender().viewport().mapToGlobal(position))
 
-    def add(self, level, index_at):
-        temp_key = QStandardItem('xx')
-        temp_value1 = QStandardItem('xx')
-        temp_value2 = QStandardItem('xx')
-        self.model.itemFromIndex(index_at).appendRow([temp_key, temp_value1, temp_value2])
-        self.tree.expandAll()
+    def add(self, level: int, index_at: QModelIndex, approved: bool = True) -> None:
+        if approved:
+            temp_data = [QStandardItem('xxx') for field in self.fields]
+            self.model.itemFromIndex(index_at).appendRow(temp_data)
+            self.tree.expandAll()
+        else:
+            print('add!')
+            self.add_pressed.emit()
 
-    # Function to Insert sibling item above to treeview item
-    def insert_up(self, level, index_at):
-        level = level - 1
-        current_row = self.model.itemFromIndex(index_at).row()
-        temp_key = QStandardItem('xx')
-        temp_value1 = QStandardItem('xx')
-        temp_value2 = QStandardItem('xx')
-        self.model.itemFromIndex(index_at).parent().insertRow(current_row, [temp_key, temp_value1, temp_value2])
-        self.tree.expandToDepth(1 + level)
+    def insert_up(self, level: int, index_at: QPoint, approved: bool = True):
+        if approved:
+            level = level - 1
+            current_row = self.model.itemFromIndex(index_at).row()
+            temp_data = [QStandardItem('xxx') for field in self.fields]
+            self.model.itemFromIndex(index_at).parent().insertRow(current_row, temp_data)
+            self.tree.expandToDepth(1 + level)
+        else:
+            print('insert_up!')
+            self.insert_up_pressed.emit()
 
-    # Function to Insert sibling item above to treeview item
-    def insert_down(self, level, index_at):
-        level = level - 1
-        temp_key = QStandardItem('xx')
-        temp_value1 = QStandardItem('xx')
-        temp_value2 = QStandardItem('xx')
-        current_row = self.model.itemFromIndex(index_at).row()
-        self.model.itemFromIndex(index_at).parent().insertRow(current_row + 1, [temp_key, temp_value1, temp_value2])
-        self.tree.expandToDepth(1 + level)
+    def insert_down(self, level: int, index_at: QPoint, approved: bool = True):
+        if approved:
+            level = level - 1
+            temp_data = [QStandardItem('xxx') for field in self.fields]
+            current_row = self.model.itemFromIndex(index_at).row()
+            self.model.itemFromIndex(index_at).parent().insertRow(current_row + 1, temp_data)
+            self.tree.expandToDepth(1 + level)
+        else:
+            print('insert_down!')
+            self.insert_down_pressed.emit()
 
-    # Function to Delete item
-    def delete(self, item):
-        item.parent().removeRow(item.row())
+    def delete(self, item: QStandardItem, approved: bool = True):
+        if approved:
+            item.parent().removeRow(item.row())
+        else:
+            print('delete!')
+            self.delete_pressed.emit()
 
 
-if __name__ == '__main__':
+"""if __name__ == '__main__':
     cat_repo = SQLiteRepository[Category]('test.db', Category)
     cats = '''
     продукты
@@ -209,3 +223,4 @@ if __name__ == '__main__':
     view.setWindowTitle('QTreeview Example')
     view.show()
     sys.exit(app.exec())
+"""

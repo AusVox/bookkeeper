@@ -7,12 +7,12 @@ from collections import deque
 from PySide6.QtWidgets import *
 from PySide6.QtGui import *
 from PySide6.QtCore import *
+from functools import partial
 from inspect import get_annotations
 from bookkeeper.repository.sqlite_repository import SQLiteRepository
 from bookkeeper.models.category import Category
 from bookkeeper.models.expense import Expense
 from bookkeeper.utils import read_tree
-
 
 class TreeView(QWidget):
     """
@@ -32,6 +32,9 @@ class TreeView(QWidget):
         """
         super(TreeView, self).__init__()
         self.tree = QTreeView(self)
+        self.tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.tree.customContextMenuRequested.connect(self.open_menu)
+
         self.layout = QVBoxLayout(self)
         self.layout.addWidget(self.tree)
         self.model = QStandardItemModel()
@@ -43,7 +46,6 @@ class TreeView(QWidget):
         self.tree.setModel(self.model)
         self.import_data(data)
         self.tree.expandAll()
-        self.print_tree()
 
     def import_data(self, data) -> None:
         """
@@ -67,13 +69,10 @@ class TreeView(QWidget):
                     values.append(value)
                     continue
                 parent = seen[pid]
-            unique_id = value['unique_id']
-            parent.appendRow([
-                QStandardItem(value['short_name']),
-                # QStandardItem(value['height']),
-                # StandardItem(value['weight'])
-            ])
-            seen[unique_id] = parent.child(parent.rowCount() - 1)
+            names = [str(k) for k in list(value.keys())[2:]]
+            row = [QStandardItem(str(value[name])) for name in names]
+            parent.appendRow(row)
+            seen[value['unique_id']] = parent.child(parent.rowCount() - 1)
 
     def get_children(self, item: QStandardItem, tree_list: list, level: int = 0) -> None:
         """
@@ -97,7 +96,12 @@ class TreeView(QWidget):
                             tree_list.append(row)
                         self.get_children(child, tree_list, lvl)
 
-    def print_tree(self, item: QStandardItem = 0, level: int = 0):
+    def print_tree(self, item: QStandardItem = 0, level: int = 0) -> None:
+        """
+        Распечатать дерево с отступами, начиная с заданного элемента.
+        :param item: корневой элемент, с которого начать печать
+        :param level: глубина вложенности
+        """
         if level == 0:
             if item == 0:
                 item = self.model.invisibleRootItem()
@@ -117,6 +121,67 @@ class TreeView(QWidget):
                             row = '\t'*(lvl-1) + row
                             print(row)
                         self.print_tree(child, lvl)
+
+    def open_menu(self, position) -> None:
+        """
+        Меню, вызываемое нажатием ПКМ. Подписать на сигнал выхова менб
+        :param position: позиция курсора
+        """
+        indexes = self.sender().selectedIndexes()
+        index_at = self.tree.indexAt(position)
+        if not index_at.isValid():
+            return
+        item = self.model.itemFromIndex(index_at)
+        if len(indexes) > 0:
+            level = 0
+            index = indexes[0]
+            while index.parent().isValid():
+                index = index.parent()
+                level += 1
+        else:
+            level = 0
+        right_click_menu = QMenu()
+        act_add = right_click_menu.addAction(self.tr("Add Child Item"))
+        act_add.triggered.connect(partial(self.add, level, index_at))
+        if item.parent() is not None:
+            insert_up = right_click_menu.addAction(self.tr("Insert Item Above"))
+            insert_up.triggered.connect(partial(self.insert_up, level, index_at))
+            insert_down = right_click_menu.addAction(self.tr("Insert Item Below"))
+            insert_down.triggered.connect(partial(self.insert_down, level, index_at))
+            act_del = right_click_menu.addAction(self.tr("Delete Item"))
+            act_del.triggered.connect(partial(self.delete, item))
+        right_click_menu.exec(self.sender().viewport().mapToGlobal(position))
+
+    def add(self, level, index_at):
+        temp_key = QStandardItem('xx')
+        temp_value1 = QStandardItem('xx')
+        temp_value2 = QStandardItem('xx')
+        self.model.itemFromIndex(index_at).appendRow([temp_key, temp_value1, temp_value2])
+        self.tree.expandAll()
+
+    # Function to Insert sibling item above to treeview item
+    def insert_up(self, level, index_at):
+        level = level - 1
+        current_row = self.model.itemFromIndex(index_at).row()
+        temp_key = QStandardItem('xx')
+        temp_value1 = QStandardItem('xx')
+        temp_value2 = QStandardItem('xx')
+        self.model.itemFromIndex(index_at).parent().insertRow(current_row, [temp_key, temp_value1, temp_value2])
+        self.tree.expandToDepth(1 + level)
+
+    # Function to Insert sibling item above to treeview item
+    def insert_down(self, level, index_at):
+        level = level - 1
+        temp_key = QStandardItem('xx')
+        temp_value1 = QStandardItem('xx')
+        temp_value2 = QStandardItem('xx')
+        current_row = self.model.itemFromIndex(index_at).row()
+        self.model.itemFromIndex(index_at).parent().insertRow(current_row + 1, [temp_key, temp_value1, temp_value2])
+        self.tree.expandToDepth(1 + level)
+
+    # Function to Delete item
+    def delete(self, item):
+        item.parent().removeRow(item.row())
 
 
 if __name__ == '__main__':

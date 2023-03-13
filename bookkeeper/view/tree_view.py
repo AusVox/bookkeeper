@@ -1,34 +1,65 @@
+"""
+Модуль древообразного виджета
+"""
+
 import sys
 from collections import deque
 from PySide6.QtWidgets import *
 from PySide6.QtGui import *
 from PySide6.QtCore import *
+from inspect import get_annotations
 from bookkeeper.repository.sqlite_repository import SQLiteRepository
 from bookkeeper.models.category import Category
+from bookkeeper.models.expense import Expense
+from bookkeeper.utils import read_tree
 
 
-class View(QWidget):
+class TreeView(QWidget):
+    """
+    Виджет для представления дерева данных
+    """
+    tree: QTreeView
+    layout: QVBoxLayout
+    model: QStandardItemModel
+    fields: list[str]
+
     def __init__(self, data):
-        super(View, self).__init__()
+        """
+        Создает виджет дерева из списка словарей вида:
+        [
+        {'unique_id': int, 'parent_id': int, 'other_field': Any, ...},
+        ]
+        """
+        super(TreeView, self).__init__()
         self.tree = QTreeView(self)
-        layout = QVBoxLayout(self)
-        layout.addWidget(self.tree)
+        self.layout = QVBoxLayout(self)
+        self.layout.addWidget(self.tree)
         self.model = QStandardItemModel()
-        self.model.setHorizontalHeaderLabels(['Name', 'Height', 'Weight'])
-        self.tree.header().setDefaultSectionSize(180)
+        names = get_annotations(Expense)
+        names.pop('pk')
+        self.fields = ['Name'] + list(names.keys())
+        self.model.setHorizontalHeaderLabels(self.fields)
+        self.tree.header().setDefaultSectionSize(90)
         self.tree.setModel(self.model)
         self.import_data(data)
         self.tree.expandAll()
+        self.print_tree()
 
-    def import_data(self, data, root=None):
+    def import_data(self, data) -> None:
+        """
+        Обновляет содержание. Принимает список словарей вида:
+        [
+        {'unique_id': int, 'parent_id': int | None, 'other_field': Any, ...},
+        ]
+        :param data: список словарей
+        """
         self.model.setRowCount(0)
-        if root is None:
-            root = self.model.invisibleRootItem()
-        seen = {}   # List of  QStandardItem
+        root = self.model.invisibleRootItem()
+        seen = {}  # List of  QStandardItem
         values = deque(data)
         while values:
             value = values.popleft()
-            if value['unique_id'] is None:
+            if value['parent_id'] == 0:
                 parent = root
             else:
                 pid = value['parent_id']
@@ -39,29 +70,76 @@ class View(QWidget):
             unique_id = value['unique_id']
             parent.appendRow([
                 QStandardItem(value['short_name']),
-                #QStandardItem(value['height']),
-                #StandardItem(value['weight'])
+                # QStandardItem(value['height']),
+                # StandardItem(value['weight'])
             ])
             seen[unique_id] = parent.child(parent.rowCount() - 1)
+
+    def get_children(self, item: QStandardItem, tree_list: list, level: int = 0) -> None:
+        """
+        Добавляет все принадлежащие item элементы в виде словарей в tree_list.
+        Формат элементов {'Name': str, }
+        :param item: родительский элемент
+        :param tree_list: список, куда сохранять
+        :param level: уровень вложенности
+        """
+        if item is not None:
+            if item.hasChildren():
+                lvl = level + 1
+                for i in range(item.rowCount()):
+                    row = {field: ' ' for field in self.fields}
+                    for j in reversed(range(item.columnCount())):
+                        child = item.child(i, j)
+                        if child is not None:
+                            row[self.fields[j]] = child.data(0)
+                        if j == 0:
+                            row['level'] = lvl
+                            tree_list.append(row)
+                        self.get_children(child, tree_list, lvl)
+
+    def print_tree(self, item: QStandardItem = 0, level: int = 0):
+        if level == 0:
+            if item == 0:
+                item = self.model.invisibleRootItem()
+                print('Tree structure from root:')
+            else:
+                print(f'Tree structure from {item.data(0)}')
+        if item is not None:
+            if item.hasChildren():
+                lvl = level + 1
+                for i in range(item.rowCount()):
+                    row = ''
+                    for j in reversed(range(item.columnCount())):
+                        child = item.child(i, j)
+                        if child is not None:
+                            row = str(child.data(0)) + row
+                        if j == 0:
+                            row = '\t'*(lvl-1) + row
+                            print(row)
+                        self.print_tree(child, lvl)
 
 
 if __name__ == '__main__':
     cat_repo = SQLiteRepository[Category]('test.db', Category)
-    data = [{'unique_id': pk, 'short_name': name, 'parent_id': pid} for pk, name, pid in cat_repo.get_all()]
-    """data = [
-        {'unique_id': 1, 'parent_id': 0, 'short_name': '', 'height': ' ', 'weight': ' '},
-        {'unique_id': 2, 'parent_id': 1, 'short_name': 'Class 1', 'height': ' ', 'weight': ' '},
-        {'unique_id': 3, 'parent_id': 2, 'short_name': 'Lucy', 'height': '162', 'weight': '50'},
-        {'unique_id': 4, 'parent_id': 2, 'short_name': 'Joe', 'height': '175', 'weight': '65'},
-        {'unique_id': 5, 'parent_id': 1, 'short_name': 'Class 2', 'height': ' ', 'weight': ' '},
-        {'unique_id': 6, 'parent_id': 5, 'short_name': 'Lily', 'height': '170', 'weight': '55'},
-        {'unique_id': 7, 'parent_id': 5, 'short_name': 'Tom', 'height': '180', 'weight': '75'},
-        {'unique_id': 8, 'parent_id': 1, 'short_name': 'Class 3', 'height': ' ', 'weight': ' '},
-        {'unique_id': 9, 'parent_id': 8, 'short_name': 'Jack', 'height': '178', 'weight': '80'},
-        {'unique_id': 10, 'parent_id': 8, 'short_name': 'Tim', 'height': '172', 'weight': '60'}
-    ]"""
+    cats = '''
+    продукты
+        мясо
+            сырое мясо
+            мясные продукты
+        сладости
+    книги
+    одежда
+    '''.splitlines()
+    Category.create_from_tree(read_tree(cats), cat_repo)
+
+    tree_data = [
+        {'unique_id': cat.pk,
+         'parent_id': cat.parent if cat.parent is not None else 0,
+         'short_name': cat.name}
+        for cat in cat_repo.get_all()
+    ]
     app = QApplication(sys.argv)
-    view = View(data)
+    view = TreeView(tree_data)
     view.setGeometry(300, 100, 600, 300)
     view.setWindowTitle('QTreeview Example')
     view.show()

@@ -2,6 +2,7 @@ from bookkeeper.repository.sqlite_repository import SQLiteRepository
 
 import pytest
 from dataclasses import dataclass
+from bookkeeper.models.category import Category
 
 
 @dataclass

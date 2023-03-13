@@ -196,31 +196,3 @@ class TreeView(QWidget):
         else:
             print('delete!')
             self.delete_pressed.emit()
-
-
-"""if __name__ == '__main__':
-    cat_repo = SQLiteRepository[Category]('test.db', Category)
-    cats = '''
-    продукты
-        мясо
-            сырое мясо
-            мясные продукты
-        сладости
-    книги
-    одежда
-    '''.splitlines()
-    Category.create_from_tree(read_tree(cats), cat_repo)
-
-    tree_data = [
-        {'unique_id': cat.pk,
-         'parent_id': cat.parent if cat.parent is not None else 0,
-         'short_name': cat.name}
-        for cat in cat_repo.get_all()
-    ]
-    app = QApplication(sys.argv)
-    view = TreeView(tree_data)
-    view.setGeometry(300, 100, 600, 300)
-    view.setWindowTitle('QTreeview Example')
-    view.show()
-    sys.exit(app.exec())
-"""

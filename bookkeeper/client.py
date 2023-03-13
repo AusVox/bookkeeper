@@ -1,3 +1,6 @@
+"""
+Запускать с этого файла
+"""
 import sys
 from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout
 from bookkeeper.presenter.presenter import Presenter

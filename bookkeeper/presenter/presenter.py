@@ -1,21 +1,18 @@
-import sys
-from functools import partial
 from bookkeeper.models.category import Category
 from bookkeeper.models.expense import Expense
 from bookkeeper.repository.sqlite_repository import SQLiteRepository
 from bookkeeper.view.tree_view import TreeView
 from bookkeeper.utils import read_tree
-from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout
 
 
 class Presenter:
-    exp_repo: SQLiteRepository
-    cat_repo: SQLiteRepository
+    exp_repo: SQLiteRepository[Expense]
+    cat_repo: SQLiteRepository[Category]
     tree_widget: TreeView
 
     def __init__(self) -> None:
-        self.exp_repo = SQLiteRepository('main.db', Expense)
-        self.cat_repo = SQLiteRepository('main.db', Category)
+        self.exp_repo = SQLiteRepository[Expense]('main.db', Expense)
+        self.cat_repo = SQLiteRepository[Category]('main.db', Category)
 
         cats = '''
         продукты
@@ -38,9 +35,3 @@ class Presenter:
         self.tree_widget = TreeView(tree_data)
         self.tree_widget.setGeometry(300, 100, 600, 300)
         self.tree_widget.setWindowTitle('Simple Finance App')
-
-
-
-
-
-

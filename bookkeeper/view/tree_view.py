@@ -2,18 +2,14 @@
 Модуль древообразного виджета
 """
 
-import sys
 from typing import Any
 from collections import deque
-from PySide6.QtWidgets import QWidget, QTreeView, QVBoxLayout, QMenu, QApplication
-from PySide6.QtGui import QStandardItem, QStandardItemModel
-from PySide6.QtCore import QModelIndex, Qt, QPoint, Signal
 from functools import partial
 from inspect import get_annotations
-from bookkeeper.repository.sqlite_repository import SQLiteRepository
-from bookkeeper.models.category import Category
+from PySide6.QtWidgets import QWidget, QTreeView, QVBoxLayout, QMenu
+from PySide6.QtGui import QStandardItem, QStandardItemModel
+from PySide6.QtCore import QModelIndex, Qt, QPoint, Signal
 from bookkeeper.models.expense import Expense
-from bookkeeper.utils import read_tree
 
 
 class TreeView(QWidget):
@@ -30,7 +26,7 @@ class TreeView(QWidget):
     insert_down_pressed: Signal = Signal()
     delete_pressed: Signal = Signal()
 
-    def __init__(self, data: list[dict[str, Any]] = tuple()) -> None:
+    def __init__(self, data: list[dict[str, Any]] | None = None) -> None:
         """
         Создает виджет дерева из списка словарей вида:
         [
@@ -51,7 +47,8 @@ class TreeView(QWidget):
         self.model.setHorizontalHeaderLabels(self.fields)
         self.tree.header().setDefaultSectionSize(90)
         self.tree.setModel(self.model)
-        self.import_data(data)
+        if data is not None:
+            self.import_data(data)
         self.tree.expandAll()
 
     def import_data(self, data: list[dict[str, Any]]) -> None:
@@ -64,7 +61,7 @@ class TreeView(QWidget):
         """
         self.model.setRowCount(0)
         root = self.model.invisibleRootItem()
-        seen = {}  # List of  QStandardItem
+        seen = dict()
         values = deque(data)
         while values:
             value = values.popleft()
@@ -81,7 +78,7 @@ class TreeView(QWidget):
             parent.appendRow(row)
             seen[value['unique_id']] = parent.child(parent.rowCount() - 1)
 
-    def get_children(self, item: QStandardItem, tree_list: list, level: int = 0) -> None:
+    def get_children(self, item: QStandardItem, tree_list: list[dict[str, Any]], level: int = 0) -> None:
         """
         Добавляет все принадлежащие item элементы в виде словарей в tree_list.
         Формат элементов {'Name': str, }
@@ -99,7 +96,7 @@ class TreeView(QWidget):
                         if child is not None:
                             row[self.fields[j]] = child.data(0)
                         if j == 0:
-                            row['level'] = lvl
+                            row['level'] = str(lvl)
                             tree_list.append(row)
                         self.get_children(child, tree_list, lvl)
 
@@ -160,6 +157,12 @@ class TreeView(QWidget):
         right_click_menu.exec(self.sender().viewport().mapToGlobal(position))
 
     def add(self, level: int, index_at: QModelIndex, approved: bool = True) -> None:
+        """
+        Добавить по нажатию
+        :param level:
+        :param index_at:
+        :param approved:
+        """
         if approved:
             temp_data = [QStandardItem('xxx') for field in self.fields]
             self.model.itemFromIndex(index_at).appendRow(temp_data)
@@ -168,7 +171,13 @@ class TreeView(QWidget):
             print('add!')
             self.add_pressed.emit()
 
-    def insert_up(self, level: int, index_at: QPoint, approved: bool = True):
+    def insert_up(self, level: int, index_at: QModelIndex, approved: bool = True) -> None:
+        """
+        Вставить сверху по нажатию
+        :param level:
+        :param index_at:
+        :param approved:
+        """
         if approved:
             level = level - 1
             current_row = self.model.itemFromIndex(index_at).row()
@@ -179,18 +188,30 @@ class TreeView(QWidget):
             print('insert_up!')
             self.insert_up_pressed.emit()
 
-    def insert_down(self, level: int, index_at: QPoint, approved: bool = True):
+    def insert_down(self, level: int, index_at: QModelIndex, approved: bool = True) -> None:
+        """
+        Вставить снизу по нажатию
+        :param level:
+        :param index_at:
+        :param approved:
+        """
         if approved:
             level = level - 1
             temp_data = [QStandardItem('xxx') for field in self.fields]
             current_row = self.model.itemFromIndex(index_at).row()
-            self.model.itemFromIndex(index_at).parent().insertRow(current_row + 1, temp_data)
+            self.model.itemFromIndex(index_at)\
+                .parent().insertRow(current_row + 1, temp_data)
             self.tree.expandToDepth(1 + level)
         else:
             print('insert_down!')
             self.insert_down_pressed.emit()
 
-    def delete(self, item: QStandardItem, approved: bool = True):
+    def delete(self, item: QStandardItem, approved: bool = True) -> None:
+        """
+        Удалить по нажатию
+        :param item:
+        :param approved:
+        """
         if approved:
             item.parent().removeRow(item.row())
         else:

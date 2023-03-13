@@ -39,8 +39,7 @@ class SQLiteRepository(AbstractRepository[T]):
         def type_check(val: str) -> str:
             if val.find('int') != -1:
                 return 'INTEGER'
-            else:
-                return 'TEXT'
+            return 'TEXT'
 
         vals = [type_check(v) for v in vals]
         names = [str(k) + ' ' + str(v) for (k, v) in zip(keys, vals)]
@@ -68,7 +67,7 @@ class SQLiteRepository(AbstractRepository[T]):
             cur.execute(
                 f'INSERT INTO {self.table_name} ({names}) VALUES ({placeholders})', values
             )
-            obj.pk = cur.lastrowid
+            obj.pk = int(cur.lastrowid)
         con.close()
         return obj.pk
 

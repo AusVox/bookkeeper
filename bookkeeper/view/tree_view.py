@@ -78,7 +78,10 @@ class TreeView(QWidget):
             parent.appendRow(row)
             seen[value['unique_id']] = parent.child(parent.rowCount() - 1)
 
-    def get_children(self, item: QStandardItem, tree_list: list[dict[str, Any]], level: int = 0) -> None:
+    def get_children(self,
+                     item: QStandardItem,
+                     tree_list: list[dict[str, Any]],
+                     level: int = 0) -> None:
         """
         Добавляет все принадлежащие item элементы в виде словарей в tree_list.
         Формат элементов {'Name': str, }
@@ -188,7 +191,10 @@ class TreeView(QWidget):
             print('insert_up!')
             self.insert_up_pressed.emit()
 
-    def insert_down(self, level: int, index_at: QModelIndex, approved: bool = True) -> None:
+    def insert_down(self,
+                    level: int,
+                    index_at: QModelIndex,
+                    approved: bool = True) -> None:
         """
         Вставить снизу по нажатию
         :param level:
